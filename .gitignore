@@ -3,3 +3,5 @@ build*
 gcc*
 *tar.gz
 opt
+*.o
+*.bin
