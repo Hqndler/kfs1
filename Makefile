@@ -1,5 +1,5 @@
 CC = i386-elf-gcc
-AS = i386-elf-as
+AS = nasm
 CFLAGS = -fno-builtin -fno-exceptions -fno-stack-protector -nostdlib -nodefaultlibs -m32 -std=gnu99 -ffreestanding -O2 -Wall -Wextra -MMD
 NAME = ourKernel
 NAME_BIN = $(NAME).bin
@@ -40,7 +40,7 @@ $(OBJ_DIR)%.o : %.c
 
 $(OBJ_DIR)%.o : %.s
 	@ mkdir -p $(OBJ_DIR) $(DEP_DIR)
-	@ $(AS) $< -o $@
+	@ $(AS) -f elf32 $< -o $@
 
 run_kernel:
 	@qemu-system-i386 -kernel $(NAME_BIN)
