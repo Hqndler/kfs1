@@ -7,3 +7,4 @@ opt
 *.d
 *.bin
 *.iso
+iso_dir/
