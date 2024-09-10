@@ -91,7 +91,8 @@ void terminal_putchar(char c)
     if (c == '\n')
     {
         terminal_column = 0;
-        ++terminal_row;
+        if (++terminal_row == VGA_HEIGHT)
+            terminal_row = 0;
     }
     else
         terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
@@ -115,8 +116,138 @@ void terminal_writestring(const char *data)
     terminal_write(data, strlen(data));
 }
 
+#define FB_COMMAND_PORT 0x3D4
+#define FB_DATA_PORT 0x3D5
+#define FB_HIGH_BYTE_COMMAND 14
+#define FB_LOW_BYTE_COMMAND 15
+
+void outb(unsigned short port, unsigned char data);
+unsigned char inb(unsigned short port);
+
+void fb_move_cursor(unsigned short pos)
+{
+    outb(FB_COMMAND_PORT, FB_HIGH_BYTE_COMMAND);
+    outb(FB_DATA_PORT,
+         ((pos >> 8) & 0x00FF));
+    outb(FB_COMMAND_PORT, FB_LOW_BYTE_COMMAND);
+    outb(FB_DATA_PORT,
+         pos & 0x00FF);
+}
+
+void terminal_puthexa(unsigned long n)
+{
+    if (n / 16)
+        terminal_puthexa(n / 16);
+    terminal_putchar("0123456789ABCDEF"[n % 16]);
+}
+
+void terminal_putnbr(unsigned int n)
+{
+    if (n / 10)
+        terminal_putnbr(n / 10);
+    terminal_putchar((n % 10) + '0');
+}
+
+bool isCtrlPressed = false;
+
+void ctrlHandling(bool status)
+{
+    isCtrlPressed = status;
+}
+
+void screens(unsigned char s)
+{
+    if (!isCtrlPressed)
+        return;
+    terminal_writestring("Switch screen to ");
+    terminal_putnbr(s);
+}
+
+bool is_caps = false;
+
+void toggle_caps(unsigned char code)
+{
+    (void)code;
+    is_caps = !is_caps;
+}
+static const unsigned char table[256][2] = {
+    [0x02] = {'1', '!'},
+    [0x03] = {'2', '@'},
+    [0x04] = {'3', '#'},
+    [0x05] = {'4', '$'},
+    [0x06] = {'5', '%'},
+    [0x07] = {'6', '^'},
+    [0x08] = {'7', '&'},
+    [0x09] = {'8', '*'},
+    [0x0A] = {'9', '('},
+    [0x0B] = {'0', ')'},
+    [0x0C] = {'-', '_'},
+    [0x0D] = {'=', '+'},
+    [0x1A] = {'[', '{'},
+    [0x1B] = {']', '}'},
+    [0x27] = {';', ':'},
+    [0x28] = {'\'', '\"'},
+    [0x29] = {'`', '~'},
+    [0x2B] = {'\\', '|'},
+    [0x33] = {',', '<'},
+    [0x34] = {'.', '>'},
+    [0x35] = {'/', '?'},
+    [0x39] = {' ', ' '},
+    [0x1E] = {'a', 'A'},
+    [0x30] = {'b', 'B'},
+    [0x2E] = {'c', 'C'},
+    [0x20] = {'d', 'D'},
+    [0x12] = {'e', 'E'},
+    [0x21] = {'f', 'F'},
+    [0x22] = {'g', 'G'},
+    [0x23] = {'h', 'H'},
+    [0x17] = {'i', 'I'},
+    [0x24] = {'j', 'J'},
+    [0x25] = {'k', 'K'},
+    [0x26] = {'l', 'L'},
+    [0x32] = {'m', 'M'},
+    [0x31] = {'n', 'N'},
+    [0x18] = {'o', 'O'},
+    [0x19] = {'p', 'P'},
+    [0x10] = {'q', 'Q'},
+    [0x13] = {'r', 'R'},
+    [0x1F] = {'s', 'S'},
+    [0x14] = {'t', 'T'},
+    [0x16] = {'u', 'U'},
+    [0x2F] = {'v', 'V'},
+    [0x11] = {'w', 'W'},
+    [0x2D] = {'x', 'X'},
+    [0x15] = {'y', 'Y'},
+    [0x2C] = {'z', 'Z'},
+};
+
+void handle_code(unsigned char code)
+{
+    char c = table[code][is_caps];
+    if ((c >= ' ' && c <= '~') ? 1 : 0)
+        terminal_putchar(c);
+}
+
+void (*func[255])(unsigned char code);
+
+unsigned char get_scan_code()
+{
+    while (!(inb(0x64) & 0x1))
+        ;
+    return inb(0x60);
+}
+
 void kernel_main(void)
 {
+    for (size_t i = 0; i < 255; i++)
+        func[i] = &handle_code;
+
+    func[0x3a] = &toggle_caps;
+    func[0x36] = &toggle_caps;
+    func[0xB6] = &toggle_caps;
+    func[0x2A] = &toggle_caps;
+    func[0xAA] = &toggle_caps;
+
     /* Initialize terminal interface */
     terminal_initialize();
 
@@ -126,4 +257,12 @@ void kernel_main(void)
     terminal_writestring(" | || |_ __) |\n");
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
+    terminal_writestring("\n\n");
+
+    while (1)
+    {
+        // terminal_puthexa(get_scan_code());
+        unsigned char code = get_scan_code();
+        func[code](code);
+    }
 }

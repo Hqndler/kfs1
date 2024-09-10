@@ -11,7 +11,7 @@ DEP_DIR = deps/
 ISO_DIR = iso_dir/
 
 FILES_C = kernel
-FILES_ASM = boot
+FILES_ASM = boot io
 
 OBJS = $(addprefix $(OBJ_DIR), $(addsuffix .o, $(FILES_C)))
 OBJS += $(addprefix $(OBJ_DIR), $(addsuffix .o, $(FILES_ASM)))
