@@ -4,4 +4,6 @@ gcc*
 *tar.gz
 opt
 *.o
+*.d
 *.bin
+*.iso

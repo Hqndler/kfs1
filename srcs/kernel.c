@@ -34,6 +34,7 @@ uint8_t screen_cursor[10];
 
 void terminal_initialize(void)
 {
+    ft_memset(screen_buffer[kernel_screen], ' ', 2000);
     terminal_row = 0;
     terminal_column = 0;
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
@@ -58,12 +59,15 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 {
     const size_t index = y * VGA_WIDTH + x;
     terminal_buffer[index] = vga_entry(c, color);
+    ft_memshift(screen_buffer[kernel_screen], c, index, 2000);
 }
 
 void terminal_putchar(char c)
 {
     if (c == '\n')
     {
+        while (terminal_column <= VGA_WIDTH)
+            terminal_putentryat(' ', terminal_color, terminal_column++, terminal_row);
         terminal_column = 0;
         ++terminal_row;
     }
@@ -100,4 +104,6 @@ void kernel_main(void)
     terminal_writestring(" | || |_ __) |\n");
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
+    for (size_t i = 1000; i < 2000; ++i)
+        terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen][i - 1000], terminal_color);
 }
