@@ -100,9 +100,4 @@ void kernel_main(void)
     terminal_writestring(" | || |_ __) |\n");
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
-    terminal_writestring("    |_||_____|\n");
-    terminal_writestring("    |_||_____|\n");
-    terminal_writestring("    |_||_____|\n");
-    terminal_writestring("    |_||_____|\n");
-    terminal_writestring("    |_||_____|\n");
 }
