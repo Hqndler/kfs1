@@ -1,4 +1,4 @@
-CC = i386-elf-gcc
+CC = gcc
 AS = nasm
 CFLAGS = -fno-builtin -fno-exceptions -fno-stack-protector -nostdlib -nodefaultlibs -m32 -std=gnu99 -ffreestanding -O2 -Wall -Wextra -MMD
 NAME = ourKernel
@@ -10,7 +10,7 @@ OBJ_DIR = obj/
 DEP_DIR = deps/
 ISO_DIR = iso_dir/
 
-FILES_C = kernel
+FILES_C = kernel utils
 FILES_ASM = boot
 
 OBJS = $(addprefix $(OBJ_DIR), $(addsuffix .o, $(FILES_C)))
@@ -26,7 +26,7 @@ vpath %.s $(SRC_DIR)
 all: $(NAME_BIN)
 
 $(NAME_BIN): $(OBJS)
-	@$(CC) -T linker.ld -o $(NAME_BIN) $(CFLAGS) $(OBJS) -lgcc
+	@$(CC) -T linker.ld -o $(NAME_BIN) $(CFLAGS) $(OBJS)
 	@echo Compilation done !
 	@if grub-file --is-x86-multiboot ourKernel.bin; then\
         echo "Multiboot confirmed !";\
