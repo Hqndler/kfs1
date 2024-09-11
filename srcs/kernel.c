@@ -162,7 +162,6 @@ void screens(unsigned char s)
     terminal_writestring("Switch screen to ");
     terminal_putnbr(s);
 }
-
 bool is_caps = false;
 
 void toggle_caps(unsigned char code)
