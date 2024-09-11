@@ -1,37 +1,4 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
-/* Check if the compiler thinks you are targeting the wrong operating system. */
-#if defined(__linux__)
-#error "You are not using a cross-compiler, you will most certainly run into trouble"
-#endif
-
-/* This tutorial will only work for the 32-bit ix86 targets. */
-#if !defined(__i386__)
-#error "This tutorial needs to be compiled with a ix86-elf compiler"
-#endif
-
-/* Hardware text mode color constants. */
-enum vga_color
-{
-    VGA_COLOR_BLACK = 0,
-    VGA_COLOR_BLUE = 1,
-    VGA_COLOR_GREEN = 2,
-    VGA_COLOR_CYAN = 3,
-    VGA_COLOR_RED = 4,
-    VGA_COLOR_MAGENTA = 5,
-    VGA_COLOR_BROWN = 6,
-    VGA_COLOR_LIGHT_GREY = 7,
-    VGA_COLOR_DARK_GREY = 8,
-    VGA_COLOR_LIGHT_BLUE = 9,
-    VGA_COLOR_LIGHT_GREEN = 10,
-    VGA_COLOR_LIGHT_CYAN = 11,
-    VGA_COLOR_LIGHT_RED = 12,
-    VGA_COLOR_LIGHT_MAGENTA = 13,
-    VGA_COLOR_LIGHT_BROWN = 14,
-    VGA_COLOR_WHITE = 15,
-};
+#include "kernel.h"
 
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg)
 {
@@ -59,20 +26,18 @@ size_t terminal_column;
 uint8_t terminal_color;
 uint16_t *terminal_buffer;
 
+uint8_t kernel_screen = 0;
+uint8_t screen_buffer[10][2000];
+uint16_t screen_cursor[10];
+
 void terminal_initialize(void)
 {
     terminal_row = 0;
     terminal_column = 0;
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_buffer = (uint16_t *)0xB8000;
-    for (size_t y = 0; y < VGA_HEIGHT; y++)
-    {
-        for (size_t x = 0; x < VGA_WIDTH; x++)
-        {
-            const size_t index = y * VGA_WIDTH + x;
-            terminal_buffer[index] = vga_entry(' ', terminal_color);
-        }
-    }
+    for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
+        terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen], terminal_color);
 }
 
 void terminal_setcolor(uint8_t color)
@@ -143,12 +108,15 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 {
     const size_t index = y * VGA_WIDTH + x;
     terminal_buffer[index] = vga_entry(c, color);
+    ft_memshift(screen_buffer[kernel_screen], c, index, 2000);
 }
 
 void terminal_putchar(char c)
 {
     if (c == '\n')
     {
+        while (terminal_column <= VGA_WIDTH)
+            terminal_putentryat(' ', terminal_color, terminal_column++, terminal_row);
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT)
         {
@@ -158,6 +126,12 @@ void terminal_putchar(char c)
     }
     else
         terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+
+    if (screen_cursor[kernel_screen] == 2000)
+    {
+        screen_cursor[kernel_screen] -= 80;
+        ft_memmove(screen_buffer[kernel_screen] + 80, screen_buffer[kernel_screen], 2000);
+    }
 
     if (++terminal_column == VGA_WIDTH)
     {
@@ -319,6 +293,8 @@ void kernel_main(void)
     func[0xAA] = &toggle_caps;
     func[0x1D] = &toggle_ctrl;
     func[0x9D] = &toggle_ctrl;
+    ft_memset(screen_buffer, ' ', 10 * VGA_WIDTH * VGA_HEIGHT);
+    ft_memset(screen_cursor, 0, 10);
 
     /* Initialize terminal interface */
     terminal_initialize();
