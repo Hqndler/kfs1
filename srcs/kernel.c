@@ -1,5 +1,14 @@
 #include "kernel.h"
 
+#define pos(x, y) ({return x * VGA_WIDTH + y};)
+#define FB_COMMAND_PORT 0x3D4
+#define FB_DATA_PORT 0x3D5
+#define FB_HIGH_BYTE_COMMAND 14
+#define FB_LOW_BYTE_COMMAND 15
+
+void outb(unsigned short port, unsigned char data);
+unsigned char inb(unsigned short port);
+
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg)
 {
     return fg | bg << 4;
@@ -21,23 +30,39 @@ size_t strlen(const char *str)
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
 
-size_t terminal_row;
-size_t terminal_column;
+// size_t terminal_row;
+// size_t terminal_column;
 uint8_t terminal_color;
 uint16_t *terminal_buffer;
 
 uint8_t kernel_screen = 0;
 uint8_t screen_buffer[10][2000];
-uint16_t screen_cursor[10];
+size_t screen_cursor[10];
+
+void vga_init()
+{
+    // terminal_column = 0;
+    // terminal_row = 0;
+    terminal_buffer = (uint16_t *)0xB8000;
+    terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
+        terminal_buffer[i] = vga_entry(' ', terminal_color);
+}
+
+void fb_move_cursor(unsigned short pos)
+{
+    outb(FB_COMMAND_PORT, FB_HIGH_BYTE_COMMAND);
+    outb(FB_DATA_PORT,
+         ((pos >> 8) & 0x00FF));
+    outb(FB_COMMAND_PORT, FB_LOW_BYTE_COMMAND);
+    outb(FB_DATA_PORT,
+         pos & 0x00FF);
+}
 
 void terminal_initialize(void)
 {
-    terminal_row = 0;
-    terminal_column = 0;
-    terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_buffer = (uint16_t *)0xB8000;
     for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
-        terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen], terminal_color);
+        terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen][i], terminal_color);
 }
 
 void terminal_setcolor(uint8_t color)
@@ -45,103 +70,59 @@ void terminal_setcolor(uint8_t color)
     terminal_color = color;
 }
 
-void *kmemcpy(void *dst, const void *src, size_t n)
+void terminal_putentryat(char c, uint8_t color, size_t index)
 {
-    unsigned char *source;
-    unsigned char *dest;
-    size_t i;
-
-    source = (unsigned char *)src;
-    dest = (unsigned char *)dst;
-    i = 0;
-    if (!dst && !src)
-        return (NULL);
-    if (n == 0)
-        return (dst);
-    while (n--)
-    {
-        dest[i] = source[i];
-        i++;
-    }
-    return (dst);
-}
-
-void *kmemset(void *s, int c, size_t len)
-{
-    unsigned char *ptr;
-    int i;
-
-    i = 0;
-    ptr = s;
-    c = (unsigned char)c;
-    while (len--)
-    {
-        ptr[i] = c;
-        i++;
-    }
-    return (s);
-}
-
-void *kmemmove(void *dst, const void *src, size_t len)
-{
-    char *source;
-    char *dest;
-
-    if (!dst || !src)
-        return (NULL);
-    source = (char *)src;
-    dest = (char *)dst;
-    if (dest > source)
-    {
-        while (len > 0)
-        {
-            len--;
-            dest[len] = source[len];
-        }
-    }
-    else
-        kmemcpy(dest, source, len);
-    return (dest);
-}
-
-void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
-{
-    const size_t index = y * VGA_WIDTH + x;
     terminal_buffer[index] = vga_entry(c, color);
-    ft_memshift(screen_buffer[kernel_screen], c, index, 2000);
+    kmemshift(screen_buffer[kernel_screen], c, index, 2000);
 }
 
 void terminal_putchar(char c)
 {
     if (c == '\n')
     {
-        while (terminal_column <= VGA_WIDTH)
-            terminal_putentryat(' ', terminal_color, terminal_column++, terminal_row);
-        terminal_column = 0;
-        if (++terminal_row == VGA_HEIGHT)
-        {
-            kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
-            terminal_row = VGA_HEIGHT - 1;
-        }
+        screen_cursor[kernel_screen] += VGA_WIDTH;
+        screen_cursor[kernel_screen] -= screen_cursor[kernel_screen] % VGA_WIDTH;
     }
     else
-        terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-
-    if (screen_cursor[kernel_screen] == 2000)
+        terminal_putentryat(c, terminal_color, screen_cursor[kernel_screen]++);
+    if (screen_cursor[kernel_screen] >= 2000)
     {
-        screen_cursor[kernel_screen] -= 80;
-        ft_memmove(screen_buffer[kernel_screen] + 80, screen_buffer[kernel_screen], 2000);
+        kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
+        screen_cursor[kernel_screen] -= VGA_WIDTH;
+        screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
     }
+    fb_move_cursor(screen_cursor[kernel_screen]);
 
-    if (++terminal_column == VGA_WIDTH)
-    {
-        terminal_column = 0;
-        if (++terminal_row == VGA_HEIGHT)
-        {
-            kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_HEIGHT * VGA_WIDTH);
-            terminal_row = VGA_HEIGHT - 1;
-        }
-    }
+    // if (c == '\n')
+    // {
+    //     while (screen_cursor[kernel_screen] % VGA_WIDTH)
+    //     {
+    //         terminal_putentryat(' ', terminal_color, screen_cursor[kernel_screen]);
+    //         ++screen_cursor[kernel_screen];
+    //     }
+    //     if (screen_cursor[kernel_screen] >= 2000 - VGA_WIDTH)
+    //     {
+    //         kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
+    //         screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
+    //     }
+    // }
+    // else
+    //     terminal_putentryat(c, terminal_color, screen_cursor[kernel_screen]);
+
+    // if (screen_cursor[kernel_screen] == 2000)
+    // {
+    //     screen_cursor[kernel_screen] -= 80;
+    //     kmemmove(screen_buffer[kernel_screen] + 80, screen_buffer[kernel_screen], 2000);
+    // }
+
+    // if (++screen_cursor[kernel_screen] == VGA_WIDTH)
+    // {
+    //     if (screen_cursor[kernel_screen] >= 2000 - VGA_WIDTH)
+    //     {
+    //         kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
+    //         screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
+    //     }
+    // }
 }
 
 void terminal_write(const char *data, size_t size)
@@ -153,25 +134,6 @@ void terminal_write(const char *data, size_t size)
 void terminal_writestring(const char *data)
 {
     terminal_write(data, strlen(data));
-}
-
-#define pos(x, y) ({return x * VGA_WIDTH + y};)
-#define FB_COMMAND_PORT 0x3D4
-#define FB_DATA_PORT 0x3D5
-#define FB_HIGH_BYTE_COMMAND 14
-#define FB_LOW_BYTE_COMMAND 15
-
-void outb(unsigned short port, unsigned char data);
-unsigned char inb(unsigned short port);
-
-void fb_move_cursor(unsigned short pos)
-{
-    outb(FB_COMMAND_PORT, FB_HIGH_BYTE_COMMAND);
-    outb(FB_DATA_PORT,
-         ((pos >> 8) & 0x00FF));
-    outb(FB_COMMAND_PORT, FB_LOW_BYTE_COMMAND);
-    outb(FB_DATA_PORT,
-         pos & 0x00FF);
 }
 
 void terminal_puthexa(unsigned long n)
@@ -252,10 +214,12 @@ static const unsigned char table[256][2] = {
     [0x2D] = {'x', 'X'},
     [0x15] = {'y', 'Y'},
     [0x2C] = {'z', 'Z'},
-};
+    [0x1C] = {'\n', '\n'}};
 
 void switch_screen(uint8_t n)
 {
+    kernel_screen = n;
+    terminal_initialize();
     terminal_writestring("Switch Screen to ");
     terminal_putnbr(n);
     terminal_writestring("\n");
@@ -264,7 +228,7 @@ void switch_screen(uint8_t n)
 void handle_code(unsigned char code)
 {
     char c = table[code][is_caps];
-    if (!(c >= ' ' && c <= '~'))
+    if (!((c >= ' ' && c <= '~') || c == '\n'))
         return;
     if (is_ctrl && c >= '0' && c <= '9')
         switch_screen(c - '0');
@@ -293,19 +257,25 @@ void kernel_main(void)
     func[0xAA] = &toggle_caps;
     func[0x1D] = &toggle_ctrl;
     func[0x9D] = &toggle_ctrl;
-    ft_memset(screen_buffer, ' ', 10 * VGA_WIDTH * VGA_HEIGHT);
-    ft_memset(screen_cursor, 0, 10);
+    // kmemset(screen_buffer, '@',);
+    for (size_t i = 0; i < 10; i++)
+    {
+        kmemset(screen_buffer[i], ' ', 2000);
+    }
+
+    kmemset(screen_cursor, 0, 10 * sizeof(size_t));
 
     /* Initialize terminal interface */
-    terminal_initialize();
+    // terminal_initialize();
+    vga_init();
 
     /* Newline support is left as an exercise. */
-    // terminal_writestring("   _  _  ____  \n");
-    // terminal_writestring(" | || ||___ \\ \n");
-    // terminal_writestring(" | || |_ __) |\n");
-    // terminal_writestring(" |__   _/ __/ \n");
-    // terminal_writestring("    |_||_____|\n");
-    // terminal_writestring("\n\n");
+    terminal_writestring("   _  _  ____  \n");
+    terminal_writestring(" | || ||___ \\ \n");
+    terminal_writestring(" | || |_ __) |\n");
+    terminal_writestring(" |__   _/ __/ \n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("\n\n");
 
     while (1)
     {
