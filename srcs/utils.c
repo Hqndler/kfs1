@@ -1,13 +1,13 @@
 #include "kernel.h"
 
-void	*ft_memset(void *pointer, uint16_t value, size_t count)
+void	*ft_memset(void *pointer, uint8_t value, size_t count)
 {
-	uint16_t	*str;
+	uint8_t	*str;
 
 	str = pointer;
 	while (count--)
 	{
-		*str = (uint16_t) value;
+		*str = (uint8_t) value;
 		str++;
 	}
 	return (pointer);
@@ -27,13 +27,13 @@ void	*ft_memcpy(void *destination, const void *source, size_t size)
 	return (destination);
 }
 
-void	*ft_memshift(void *source, const uint16_t byte, size_t pos, size_t size)
+void	*ft_memshift(void *source, const uint8_t byte, size_t pos, size_t size)
 {
 	if (pos >= size)
 		return source;
 
 	for (size_t i = size; i > pos; --i)
-		((uint16_t *)source)[i] = ((uint16_t *)source)[i - 1];
-	((uint16_t *)source)[pos] = byte;
+		((uint8_t *)source)[i] = ((uint8_t *)source)[i - 1];
+	((uint8_t *)source)[pos] = byte;
 	return source;
 }

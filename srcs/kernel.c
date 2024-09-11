@@ -27,7 +27,7 @@ uint8_t terminal_color;
 uint16_t *terminal_buffer;
 
 uint8_t kernel_screen = 0;
-uint16_t screen_buffer[10][2000];
+uint8_t screen_buffer[10][2000];
 
 uint8_t cursor = 0;
 uint8_t screen_cursor[10];
@@ -47,7 +47,6 @@ void terminal_initialize(void)
             terminal_buffer[index] = vga_entry(' ', terminal_color);
         }
     }
-    // ft_memcpy(screen_buffer[kernel_screen], terminal_buffer, 2000);
 }
 
 void terminal_setcolor(uint8_t color)
