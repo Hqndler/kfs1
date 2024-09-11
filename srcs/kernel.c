@@ -30,8 +30,6 @@ size_t strlen(const char *str)
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
 
-// size_t terminal_row;
-// size_t terminal_column;
 uint8_t terminal_color;
 uint16_t *terminal_buffer;
 
@@ -41,8 +39,6 @@ size_t screen_cursor[10];
 
 void vga_init()
 {
-    // terminal_column = 0;
-    // terminal_row = 0;
     terminal_buffer = (uint16_t *)0xB8000;
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
@@ -63,6 +59,7 @@ void terminal_initialize(void)
 {
     for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
         terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen][i], terminal_color);
+    fb_move_cursor(screen_cursor[kernel_screen]);
 }
 
 void terminal_setcolor(uint8_t color)
@@ -92,6 +89,7 @@ void terminal_putchar(char c)
         screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
     }
     fb_move_cursor(screen_cursor[kernel_screen]);
+    terminal_initialize();
 
     // if (c == '\n')
     // {
@@ -218,9 +216,11 @@ static const unsigned char table[256][2] = {
 
 void switch_screen(uint8_t n)
 {
+    if (n == kernel_screen)
+        return;
     kernel_screen = n;
     terminal_initialize();
-    terminal_writestring("Switch Screen to ");
+    terminal_writestring("\nSwitch Screen to ");
     terminal_putnbr(n);
     terminal_writestring("\n");
 }
@@ -245,6 +245,55 @@ unsigned char get_scan_code()
     return inb(0x60);
 }
 
+static size_t round(size_t n, bool up)
+{
+    return (n % VGA_WIDTH == 0 ? n : (n / VGA_WIDTH + up) * VGA_WIDTH);
+}
+
+void delete_char(unsigned char code)
+{
+    if (code == 0x0E)
+    {
+        --screen_cursor[kernel_screen];
+    }
+    size_t len = VGA_WIDTH - (screen_cursor[kernel_screen] % VGA_WIDTH);
+    kmemmove(&screen_buffer[kernel_screen][screen_cursor[kernel_screen]],
+             &screen_buffer[kernel_screen][screen_cursor[kernel_screen]] + 1,
+             len);
+    screen_buffer[kernel_screen][round(screen_cursor[kernel_screen], 1)] = ' ';
+    terminal_initialize();
+    fb_move_cursor(screen_cursor[kernel_screen]);
+}
+
+void handle_extended(unsigned char code)
+{
+    code = get_scan_code();
+    switch (code)
+    {
+    case 0x4B:
+        if (screen_cursor[kernel_screen] % VGA_WIDTH != 0)
+            fb_move_cursor(--screen_cursor[kernel_screen]);
+        break;
+    case 0x4D:
+        if (screen_cursor[kernel_screen] % VGA_WIDTH != VGA_WIDTH - 1)
+            fb_move_cursor(++screen_cursor[kernel_screen]);
+        break;
+    case 0x53:
+        delete_char(0x53);
+        break;
+    case 0x47:
+        screen_cursor[kernel_screen] = round(screen_cursor[kernel_screen] + 1, 0);
+        fb_move_cursor(screen_cursor[kernel_screen]);
+        break;
+    case 0x4f:
+        screen_cursor[kernel_screen] = round(screen_cursor[kernel_screen], 1) - 1;
+        fb_move_cursor(screen_cursor[kernel_screen]);
+        break;
+    default:
+        break;
+    }
+}
+
 void kernel_main(void)
 {
     for (size_t i = 0; i < 255; i++)
@@ -257,6 +306,8 @@ void kernel_main(void)
     func[0xAA] = &toggle_caps;
     func[0x1D] = &toggle_ctrl;
     func[0x9D] = &toggle_ctrl;
+    func[0xE0] = &handle_extended;
+    func[0x0E] = &delete_char;
     // kmemset(screen_buffer, '@',);
     for (size_t i = 0; i < 10; i++)
     {
@@ -270,16 +321,19 @@ void kernel_main(void)
     vga_init();
 
     /* Newline support is left as an exercise. */
-    terminal_writestring("   _  _  ____  \n");
+    terminal_writestring("  _  _  ____  \n");
     terminal_writestring(" | || ||___ \\ \n");
     terminal_writestring(" | || |_ __) |\n");
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
     terminal_writestring("\n\n");
 
+    // E04B
+
     while (1)
     {
         unsigned char code = get_scan_code();
+        // terminal_puthexa(code);
         func[code](code);
     }
 }
