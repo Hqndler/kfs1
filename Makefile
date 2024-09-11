@@ -1,4 +1,4 @@
-CC = i386-elf-gcc
+CC = gcc
 AS = nasm
 CFLAGS = -fno-builtin -fno-exceptions -fno-stack-protector -nostdlib -nodefaultlibs -m32 -std=gnu99 -ffreestanding -O2 -Wall -Wextra -MMD
 NAME = ourKernel

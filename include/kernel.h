@@ -29,3 +29,5 @@ enum vga_color
 void	*ft_memset(void *pointer, uint8_t value, size_t count);
 void	*ft_memcpy(void *destination, const void *source, size_t size);
 void	*ft_memshift(void *source, const uint8_t byte, size_t pos, size_t size);
+void	*ft_memmove(void *destination, const void *source, size_t size);
+

@@ -28,25 +28,16 @@ uint16_t *terminal_buffer;
 
 uint8_t kernel_screen = 0;
 uint8_t screen_buffer[10][2000];
-
-uint8_t cursor = 0;
-uint8_t screen_cursor[10];
+uint16_t screen_cursor[10];
 
 void terminal_initialize(void)
 {
-    ft_memset(screen_buffer[kernel_screen], ' ', 2000);
     terminal_row = 0;
     terminal_column = 0;
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_buffer = (uint16_t *)0xB8000;
-    for (size_t y = 0; y < VGA_HEIGHT; y++)
-    {
-        for (size_t x = 0; x < VGA_WIDTH; x++)
-        {
-            const size_t index = y * VGA_WIDTH + x;
-            terminal_buffer[index] = vga_entry(' ', terminal_color);
-        }
-    }
+    for (size_t i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++)
+            terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen], terminal_color);
 }
 
 void terminal_setcolor(uint8_t color)
@@ -72,6 +63,12 @@ void terminal_putchar(char c)
     }
     else
         terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+    
+    if (screen_cursor[kernel_screen] == 2000)
+    {
+        screen_cursor[kernel_screen] -= 80;
+        ft_memmove(screen_buffer[kernel_screen] + 80, screen_buffer[kernel_screen], 2000);
+    }
 
     if (++terminal_column == VGA_WIDTH)
     {
@@ -94,6 +91,9 @@ void terminal_writestring(const char *data)
 
 void kernel_main(void)
 {
+    ft_memset(screen_buffer, ' ', 10 * VGA_WIDTH * VGA_HEIGHT);
+    ft_memset(screen_cursor, 0, 10);
+
     /* Initialize terminal interface */
     terminal_initialize();
 
@@ -103,6 +103,35 @@ void kernel_main(void)
     terminal_writestring(" | || |_ __) |\n");
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
-    for (size_t i = 1000; i < 2000; ++i)
-        terminal_buffer[i] = vga_entry(screen_buffer[kernel_screen][i - 1000], terminal_color);
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
+    terminal_writestring("    |_||_____|\n");
 }

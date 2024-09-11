@@ -37,3 +37,21 @@ void	*ft_memshift(void *source, const uint8_t byte, size_t pos, size_t size)
 	((uint8_t *)source)[pos] = byte;
 	return source;
 }
+
+void	*ft_memmove(void *destination, const void *source, size_t size)
+{
+	size_t			i;
+	unsigned char	*d;
+	unsigned char	*s;
+
+	d = (unsigned char *) destination;
+	s = (unsigned char *) source;
+	i = -1;
+	if (d > s)
+		while (size-- > 0)
+			d[size] = s[size];
+	else
+		while (++i < size)
+			d[i] = s[i];
+	return (destination);
+}
