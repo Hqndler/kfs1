@@ -80,6 +80,65 @@ void terminal_setcolor(uint8_t color)
     terminal_color = color;
 }
 
+void *kmemcpy(void *dst, const void *src, size_t n)
+{
+    unsigned char *source;
+    unsigned char *dest;
+    size_t i;
+
+    source = (unsigned char *)src;
+    dest = (unsigned char *)dst;
+    i = 0;
+    if (!dst && !src)
+        return (NULL);
+    if (n == 0)
+        return (dst);
+    while (n--)
+    {
+        dest[i] = source[i];
+        i++;
+    }
+    return (dst);
+}
+
+void *kmemset(void *s, int c, size_t len)
+{
+    unsigned char *ptr;
+    int i;
+
+    i = 0;
+    ptr = s;
+    c = (unsigned char)c;
+    while (len--)
+    {
+        ptr[i] = c;
+        i++;
+    }
+    return (s);
+}
+
+void *kmemmove(void *dst, const void *src, size_t len)
+{
+    char *source;
+    char *dest;
+
+    if (!dst || !src)
+        return (NULL);
+    source = (char *)src;
+    dest = (char *)dst;
+    if (dest > source)
+    {
+        while (len > 0)
+        {
+            len--;
+            dest[len] = source[len];
+        }
+    }
+    else
+        kmemcpy(dest, source, len);
+    return (dest);
+}
+
 void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 {
     const size_t index = y * VGA_WIDTH + x;
@@ -92,7 +151,10 @@ void terminal_putchar(char c)
     {
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT)
-            terminal_row = 0;
+        {
+            kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
+            terminal_row = VGA_HEIGHT - 1;
+        }
     }
     else
         terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
@@ -101,7 +163,10 @@ void terminal_putchar(char c)
     {
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT)
-            terminal_row = 0;
+        {
+            kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_HEIGHT * VGA_WIDTH);
+            terminal_row = VGA_HEIGHT - 1;
+        }
     }
 }
 
@@ -116,6 +181,7 @@ void terminal_writestring(const char *data)
     terminal_write(data, strlen(data));
 }
 
+#define pos(x, y) ({return x * VGA_WIDTH + y};)
 #define FB_COMMAND_PORT 0x3D4
 #define FB_DATA_PORT 0x3D5
 #define FB_HIGH_BYTE_COMMAND 14
@@ -148,27 +214,21 @@ void terminal_putnbr(unsigned int n)
     terminal_putchar((n % 10) + '0');
 }
 
-bool isCtrlPressed = false;
-
-void ctrlHandling(bool status)
-{
-    isCtrlPressed = status;
-}
-
-void screens(unsigned char s)
-{
-    if (!isCtrlPressed)
-        return;
-    terminal_writestring("Switch screen to ");
-    terminal_putnbr(s);
-}
 bool is_caps = false;
+bool is_ctrl = false;
 
 void toggle_caps(unsigned char code)
 {
     (void)code;
     is_caps = !is_caps;
 }
+
+void toggle_ctrl(unsigned char code)
+{
+    (void)code;
+    is_ctrl = !is_ctrl;
+}
+
 static const unsigned char table[256][2] = {
     [0x02] = {'1', '!'},
     [0x03] = {'2', '@'},
@@ -220,10 +280,21 @@ static const unsigned char table[256][2] = {
     [0x2C] = {'z', 'Z'},
 };
 
+void switch_screen(uint8_t n)
+{
+    terminal_writestring("Switch Screen to ");
+    terminal_putnbr(n);
+    terminal_writestring("\n");
+}
+
 void handle_code(unsigned char code)
 {
     char c = table[code][is_caps];
-    if ((c >= ' ' && c <= '~') ? 1 : 0)
+    if (!(c >= ' ' && c <= '~'))
+        return;
+    if (is_ctrl && c >= '0' && c <= '9')
+        switch_screen(c - '0');
+    else
         terminal_putchar(c);
 }
 
@@ -246,21 +317,22 @@ void kernel_main(void)
     func[0xB6] = &toggle_caps;
     func[0x2A] = &toggle_caps;
     func[0xAA] = &toggle_caps;
+    func[0x1D] = &toggle_ctrl;
+    func[0x9D] = &toggle_ctrl;
 
     /* Initialize terminal interface */
     terminal_initialize();
 
     /* Newline support is left as an exercise. */
-    terminal_writestring("   _  _  ____  \n");
-    terminal_writestring(" | || ||___ \\ \n");
-    terminal_writestring(" | || |_ __) |\n");
-    terminal_writestring(" |__   _/ __/ \n");
-    terminal_writestring("    |_||_____|\n");
-    terminal_writestring("\n\n");
+    // terminal_writestring("   _  _  ____  \n");
+    // terminal_writestring(" | || ||___ \\ \n");
+    // terminal_writestring(" | || |_ __) |\n");
+    // terminal_writestring(" |__   _/ __/ \n");
+    // terminal_writestring("    |_||_____|\n");
+    // terminal_writestring("\n\n");
 
     while (1)
     {
-        // terminal_puthexa(get_scan_code());
         unsigned char code = get_scan_code();
         func[code](code);
     }
