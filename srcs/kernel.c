@@ -82,45 +82,14 @@ void terminal_putchar(char c)
     }
     else
         terminal_putentryat(c, terminal_color, screen_cursor[kernel_screen]++);
-    if (screen_cursor[kernel_screen] >= 2000)
+    if (screen_cursor[kernel_screen] >= (VGA_WIDTH * VGA_HEIGHT) - 1)
     {
-        kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
-        screen_cursor[kernel_screen] -= VGA_WIDTH;
-        screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
+        // kmemmove(&screen_buffer[kernel_screen], &screen_buffer[kernel_screen][VGA_WIDTH], VGA_WIDTH * VGA_HEIGHT * sizeof(uint8_t));
+        kmemmove(&screen_buffer[kernel_screen][VGA_WIDTH * 6], &screen_buffer[kernel_screen][VGA_WIDTH * 7], VGA_WIDTH * VGA_HEIGHT * sizeof(uint8_t));
+        screen_cursor[kernel_screen] = (VGA_HEIGHT - 1) * VGA_WIDTH;
     }
     fb_move_cursor(screen_cursor[kernel_screen]);
     terminal_initialize();
-
-    // if (c == '\n')
-    // {
-    //     while (screen_cursor[kernel_screen] % VGA_WIDTH)
-    //     {
-    //         terminal_putentryat(' ', terminal_color, screen_cursor[kernel_screen]);
-    //         ++screen_cursor[kernel_screen];
-    //     }
-    //     if (screen_cursor[kernel_screen] >= 2000 - VGA_WIDTH)
-    //     {
-    //         kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
-    //         screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
-    //     }
-    // }
-    // else
-    //     terminal_putentryat(c, terminal_color, screen_cursor[kernel_screen]);
-
-    // if (screen_cursor[kernel_screen] == 2000)
-    // {
-    //     screen_cursor[kernel_screen] -= 80;
-    //     kmemmove(screen_buffer[kernel_screen] + 80, screen_buffer[kernel_screen], 2000);
-    // }
-
-    // if (++screen_cursor[kernel_screen] == VGA_WIDTH)
-    // {
-    //     if (screen_cursor[kernel_screen] >= 2000 - VGA_WIDTH)
-    //     {
-    //         kmemmove(terminal_buffer, terminal_buffer + VGA_WIDTH, VGA_WIDTH * VGA_HEIGHT * sizeof(uint16_t));
-    //         screen_cursor[kernel_screen] -= (screen_cursor[kernel_screen] % VGA_WIDTH);
-    //     }
-    // }
 }
 
 void terminal_write(const char *data, size_t size)
@@ -150,6 +119,7 @@ void terminal_putnbr(unsigned int n)
 
 bool is_caps = false;
 bool is_ctrl = false;
+bool is_num = true;
 
 void toggle_caps(unsigned char code)
 {
@@ -161,6 +131,12 @@ void toggle_ctrl(unsigned char code)
 {
     (void)code;
     is_ctrl = !is_ctrl;
+}
+
+void toggle_num(unsigned char code)
+{
+    (void)code;
+    is_num = !is_num;
 }
 
 static const unsigned char table[256][2] = {
@@ -212,7 +188,23 @@ static const unsigned char table[256][2] = {
     [0x2D] = {'x', 'X'},
     [0x15] = {'y', 'Y'},
     [0x2C] = {'z', 'Z'},
-    [0x1C] = {'\n', '\n'}};
+    [0x1C] = {'\n', '\n'},
+    // Keypad
+    [0x47] = {'7', '7'},
+    [0x48] = {'8', '8'},
+    [0x49] = {'9', '9'},
+    [0x4A] = {'-', '-'},
+    [0x4B] = {'4', '4'},
+    [0x4C] = {'5', '5'},
+    [0x4D] = {'6', '6'},
+    [0x4E] = {'+', '+'},
+    [0x4F] = {'1', '1'},
+    [0x50] = {'2', '2'},
+    [0x51] = {'3', '3'},
+    [0x52] = {'0', '0'},
+    [0x53] = {'.', '.'},
+    [0x37] = {'*', '*'},
+};
 
 void switch_screen(uint8_t n)
 {
@@ -227,6 +219,8 @@ void switch_screen(uint8_t n)
 
 void handle_code(unsigned char code)
 {
+    if (code >= 0x47 && code <= 0x53 && code != 0x4A && code != 0x4E && !is_num)
+        return;
     char c = table[code][is_caps];
     if (!((c >= ' ' && c <= '~') || c == '\n'))
         return;
@@ -245,22 +239,17 @@ unsigned char get_scan_code()
     return inb(0x60);
 }
 
-static size_t round(size_t n, bool up)
-{
-    return (n % VGA_WIDTH == 0 ? n : (n / VGA_WIDTH + up) * VGA_WIDTH);
-}
-
 void delete_char(unsigned char code)
 {
     if (code == 0x0E)
     {
         --screen_cursor[kernel_screen];
     }
-    size_t len = VGA_WIDTH - (screen_cursor[kernel_screen] % VGA_WIDTH);
+    // size_t len = VGA_WIDTH - (screen_cursor[kernel_screen] % VGA_WIDTH);
+    size_t len = (VGA_WIDTH * VGA_HEIGHT) - screen_cursor[kernel_screen];
     kmemmove(&screen_buffer[kernel_screen][screen_cursor[kernel_screen]],
              &screen_buffer[kernel_screen][screen_cursor[kernel_screen]] + 1,
              len);
-    screen_buffer[kernel_screen][round(screen_cursor[kernel_screen], 1)] = ' ';
     terminal_initialize();
     fb_move_cursor(screen_cursor[kernel_screen]);
 }
@@ -271,27 +260,42 @@ void handle_extended(unsigned char code)
     switch (code)
     {
     case 0x4B:
-        if (screen_cursor[kernel_screen] % VGA_WIDTH != 0)
-            fb_move_cursor(--screen_cursor[kernel_screen]);
+        // if (screen_cursor[kernel_screen] % VGA_WIDTH != 0)
+        if (screen_cursor[kernel_screen] != 0)
+            --screen_cursor[kernel_screen];
         break;
     case 0x4D:
-        if (screen_cursor[kernel_screen] % VGA_WIDTH != VGA_WIDTH - 1)
-            fb_move_cursor(++screen_cursor[kernel_screen]);
+        // if (screen_cursor[kernel_screen] % VGA_WIDTH != VGA_WIDTH - 1)
+        if (screen_cursor[kernel_screen] != (VGA_WIDTH * VGA_HEIGHT) - 1)
+            ++screen_cursor[kernel_screen];
         break;
     case 0x53:
         delete_char(0x53);
         break;
     case 0x47:
-        screen_cursor[kernel_screen] = round(screen_cursor[kernel_screen] + 1, 0);
-        fb_move_cursor(screen_cursor[kernel_screen]);
+        if (is_ctrl)
+            screen_cursor[kernel_screen] = 0;
+        else
+            screen_cursor[kernel_screen] -= screen_cursor[kernel_screen] % VGA_WIDTH;
         break;
     case 0x4f:
-        screen_cursor[kernel_screen] = round(screen_cursor[kernel_screen], 1) - 1;
-        fb_move_cursor(screen_cursor[kernel_screen]);
+        if (is_ctrl)
+            screen_cursor[kernel_screen] = (VGA_HEIGHT * VGA_WIDTH) - 1;
+        else
+            screen_cursor[kernel_screen] += (VGA_WIDTH - (screen_cursor[kernel_screen] % VGA_WIDTH)) - 1;
         break;
+
+    case 0x1C:
+        terminal_putchar('\n');
+        break;
+    case 0x35:
+        terminal_putchar('/');
+        break;
+
     default:
         break;
     }
+    fb_move_cursor(screen_cursor[kernel_screen]);
 }
 
 void kernel_main(void)
@@ -306,6 +310,7 @@ void kernel_main(void)
     func[0xAA] = &toggle_caps;
     func[0x1D] = &toggle_ctrl;
     func[0x9D] = &toggle_ctrl;
+    func[0x45] = &toggle_num;
     func[0xE0] = &handle_extended;
     func[0x0E] = &delete_char;
     // kmemset(screen_buffer, '@',);

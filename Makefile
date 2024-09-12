@@ -52,7 +52,7 @@ iso:
 	@mkdir -p $(ISO_DIR)boot/grub
 	@cp $(NAME_BIN) $(ISO_DIR)boot/$(NAME_BIN)
 	@cp grub.cfg $(ISO_DIR)boot/grub/grub.cfg
-	@grub-mkrescue -o $(NAME_ISO) $(ISO_DIR)
+	@grub-mkrescue --compress=xz -o $(NAME_ISO) $(ISO_DIR)
 
 run_iso:
 	@qemu-system-i386 -cdrom $(NAME_ISO)
