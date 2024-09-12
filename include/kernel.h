@@ -1,6 +1,7 @@
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#pragma once
+# include <stdbool.h>
+# include <stddef.h>
+# include <stdint.h>
 
 /* Hardware text mode color constants. */
 enum vga_color
@@ -23,10 +24,46 @@ enum vga_color
     VGA_COLOR_WHITE = 15,
 };
 
+/* Globals */
+
+extern size_t kernel_screen;
+extern size_t screen_cursor[10];
+extern uint8_t screen_buffer[10][2000];
+extern uint8_t terminal_color;
+extern uint16_t *terminal_buffer;
+
+extern void (*func[255])(unsigned char code);
+
+# define VGA_WIDTH 80
+# define VGA_HEIGHT 25
+
+/* Keyboard */
+
+void fb_move_cursor(unsigned short pos);
+void toggle_caps(unsigned char code);
+void toggle_ctrl(unsigned char code);
+void toggle_num(unsigned char code);
+void handle_code(unsigned char code);
+void handle_extended(unsigned char code);
+unsigned char get_scan_code();
+
+void delete_char(unsigned char code);
+
+/* VGA */
+
+void write_string_buffer(char *str);
+void terminal_initialize(void);
+void vga_init();
+void switch_screen(int n);
+void terminal_putchar(char c);
+
+
 /* Utils */
 
 void *kmemset(void *pointer, uint8_t value, size_t count);
 void *kvgaset(void *pointer, uint16_t value, size_t count);
 void *kmemcpy(void *destination, const void *source, size_t size);
 void *kmemshift(void *source, const uint8_t byte, size_t pos, size_t size);
+void *kvgashift(void *source, const uint16_t byte, size_t pos, size_t size);
 void *kmemmove(void *destination, const void *source, size_t size);
+size_t strlen(const char *str);

@@ -8,3 +8,4 @@ opt
 *.bin
 *.iso
 iso_dir/
+.vscode/

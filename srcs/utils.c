@@ -1,4 +1,6 @@
-#include "kernel.h"
+# include <stdbool.h>
+# include <stddef.h>
+# include <stdint.h>
 
 void *kmemset(void *pointer, uint8_t value, size_t count)
 {
@@ -40,6 +42,17 @@ void *kmemcpy(void *destination, const void *source, size_t size)
     return (destination);
 }
 
+void *kvgashift(void *source, const uint16_t byte, size_t pos, size_t size)
+{
+    if (pos >= size)
+        return source;
+
+    for (size_t i = size; i > pos; --i)
+        ((uint16_t *)source)[i] = ((uint16_t *)source)[i - 1];
+    ((uint16_t *)source)[pos] = byte;
+    return source;
+}
+
 void *kmemshift(void *source, const uint8_t byte, size_t pos, size_t size)
 {
     if (pos >= size)
@@ -67,4 +80,12 @@ void *kmemmove(void *destination, const void *source, size_t size)
         while (++i < size)
             d[i] = s[i];
     return (destination);
+}
+
+size_t strlen(const char *str)
+{
+    size_t len = 0;
+    while (str[len])
+        len++;
+    return len;
 }
