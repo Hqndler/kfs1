@@ -1,6 +1,8 @@
 CC = i386-elf-gcc
 AS = nasm
-CFLAGS = -fno-builtin -fno-exceptions -fno-stack-protector -nostdlib -nodefaultlibs -m32 -std=gnu99 -ffreestanding -O2 -Wall -Wextra -MMD
+CFLAGS = -fno-builtin -fno-exceptions -fno-stack-protector \
+		-nostdlib -nodefaultlibs -m32 -std=gnu99 -ffreestanding \
+		-Wall -Wextra -MMD
 NAME = ourKernel
 NAME_BIN = $(NAME).bin
 NAME_ISO = $(NAME).iso

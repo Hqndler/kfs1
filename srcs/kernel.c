@@ -261,7 +261,7 @@ void handle_extended(unsigned char code)
     {
     case 0x4B:
         // if (screen_cursor[kernel_screen] % VGA_WIDTH != 0)
-        if (screen_cursor[kernel_screen] != 0)
+        if (screen_cursor[kernel_screen] != VGA_WIDTH * 6)
             --screen_cursor[kernel_screen];
         break;
     case 0x4D:
@@ -274,7 +274,7 @@ void handle_extended(unsigned char code)
         break;
     case 0x47:
         if (is_ctrl)
-            screen_cursor[kernel_screen] = 0;
+            screen_cursor[kernel_screen] = VGA_WIDTH * 6;
         else
             screen_cursor[kernel_screen] -= screen_cursor[kernel_screen] % VGA_WIDTH;
         break;
@@ -316,7 +316,7 @@ void kernel_main(void)
     // kmemset(screen_buffer, '@',);
     for (size_t i = 0; i < 10; i++)
     {
-        kmemset(screen_buffer[i], ' ', 2000);
+        kmemset(screen_buffer[i], ' ', VGA_HEIGHT * VGA_WIDTH);
     }
 
     kmemset(screen_cursor, 0, 10 * sizeof(size_t));
@@ -332,8 +332,6 @@ void kernel_main(void)
     terminal_writestring(" |__   _/ __/ \n");
     terminal_writestring("    |_||_____|\n");
     terminal_writestring("\n\n");
-
-    // E04B
 
     while (1)
     {
