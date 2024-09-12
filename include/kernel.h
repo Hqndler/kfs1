@@ -26,6 +26,7 @@ enum vga_color
 /* Utils */
 
 void *kmemset(void *pointer, uint8_t value, size_t count);
+void *kvgaset(void *pointer, uint16_t value, size_t count);
 void *kmemcpy(void *destination, const void *source, size_t size);
 void *kmemshift(void *source, const uint8_t byte, size_t pos, size_t size);
 void *kmemmove(void *destination, const void *source, size_t size);
