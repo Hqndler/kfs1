@@ -1,6 +1,6 @@
-# include <stdbool.h>
-# include <stddef.h>
-# include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 size_t kernel_screen = 0;
 size_t screen_cursor[10];

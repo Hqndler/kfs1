@@ -12,7 +12,7 @@ OBJ_DIR = obj/
 DEP_DIR = deps/
 ISO_DIR = iso_dir/
 
-FILES_C = global utils scancode tty kernel
+FILES_C = global utils scancode tty kernel kprint
 FILES_ASM = boot io
 
 OBJS = $(addprefix $(OBJ_DIR), $(addsuffix .o, $(FILES_C)))

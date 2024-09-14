@@ -1,24 +1,19 @@
 global outb
-; make the label outb visible outside this file
 ; outb - send a byte to an I/O port
-; stack: [esp + 8] the data byte
-;[esp + 4] the I/O port
-;[esp] return address
+; Parameters (via stack):
+; [esp + 8] - data byte
+; [esp + 4] - I/O port address
 outb:
-    mov al, [esp + 8]
-    ; move the data to be sent into the al register
-    mov dx, [esp + 4]
-    ; move the address of the I/O port into the dx register
-    out dx, al
-    ; send the data to the I/O port
-    ret
-; return to the calling function
+    mov al, [esp + 8]    ; Load the data byte into AL
+    mov dx, [esp + 4]    ; Load the I/O port address into DX
+    out dx, al           ; Send the byte to the I/O port
+    ret                  ; Return to the calling function
 
 global inb
+; inb - read a byte from an I/O port
+; Parameters (via stack):
+; [esp + 4] - I/O port address
 inb:
-    mov dx, [esp + 4]
-    ; move the address of the I/O port to the dx register
-    in al, dx
-    ; read a byte from the I/O port and store it in the al register
-    ret
-; return to the calling function
+    mov dx, [esp + 4]    ; Load the I/O port address into DX
+    in al, dx            ; Read a byte from the I/O port into AL
+    ret                  ; Return to the calling function
